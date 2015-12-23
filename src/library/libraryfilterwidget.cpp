@@ -120,7 +120,7 @@ LibraryFilterWidget::~LibraryFilterWidget() { delete ui_; }
 
 void LibraryFilterWidget::UpdateGroupByActions() {
   if (group_by_group_) {
-    disconnect(group_by_group_,0,0,0);
+    group_by_group_->disconnect();
     delete group_by_group_;
   }
 
@@ -160,25 +160,29 @@ QActionGroup* LibraryFilterWidget::CreateGroupByActions(QObject* parent) {
                                                  LibraryModel::GroupBy_Artist,
                                                  LibraryModel::GroupBy_Album)));
 
-  QAction* sep1 = new QAction(parent);
-  sep1->setSeparator(true);
-  ret->addAction(sep1);
-
   // read saved groupings
   QSettings s;
   s.beginGroup(LibraryModel::kSavedGroupingsSettingsGroup);
   QStringList saved = s.childKeys();
-  for (int i = 0; i < saved.size(); ++i) {
-    QByteArray bytes = s.value(saved.at(i)).toByteArray();
+
+  if (saved.size() > 0) {
+    // only need a top separator if there are some saved groupings
+    QAction* top_separator = new QAction(parent);
+    top_separator->setSeparator(true);
+    ret->addAction(top_separator);
+  }
+
+  for (const QString& saved_name : saved) {
+    QByteArray bytes = s.value(saved_name).toByteArray();
     QDataStream ds(&bytes, QIODevice::ReadOnly);
     LibraryModel::Grouping g;
     ds >> g;
-    ret->addAction(CreateGroupByAction(saved.at(i), parent, g));
+    ret->addAction(CreateGroupByAction(saved_name, parent, g));
   }
 
-  QAction* sep2 = new QAction(parent);
-  sep2->setSeparator(true);
-  ret->addAction(sep2);
+  QAction* bottom_separator = new QAction(parent);
+  bottom_separator->setSeparator(true);
+  ret->addAction(bottom_separator);
 
   ret->addAction(CreateGroupByAction(tr("Advanced grouping..."), parent,
                                      LibraryModel::Grouping()));
@@ -273,7 +277,8 @@ void LibraryFilterWidget::GroupingChanged(const LibraryModel::Grouping& g) {
   CheckCurrentGrouping(g);
 }
 
-void LibraryFilterWidget::CheckCurrentGrouping(const LibraryModel::Grouping& g) {
+void LibraryFilterWidget::CheckCurrentGrouping(
+    const LibraryModel::Grouping& g) {
   for (QAction* action : group_by_group_->actions()) {
     if (action->property("group_by").isNull()) continue;
 
